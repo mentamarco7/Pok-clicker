@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Clicker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #f0f8ff;
+            background-image: url('https://www.transparenttextures.com/patterns/pokemon.png');
+            user-select: none;
+        }
+        
+        .pokeball-btn {
+            transition: all 0.1s ease;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .pokeball-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .pokemon-card {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
+        }
+        
+        .pokemon-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        @keyframes catch {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .catch-animation {
+            animation: catch 0.3s ease;
+        }
+        
+        .type-grass { background-color: #78C850; }
+        .type-fire { background-color: #F08030; }
+        .type-water { background-color: #6890F0; }
+        .type-electric { background-color: #F8D030; }
+        .type-normal { background-color: #A8A878; }
+        .type-flying { background-color: #A890F0; }
+        
+        .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-red-600 text-white py-4 px-6 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center">
+                <i class="fas fa-gamepad text-2xl mr-3"></i>
+                <h1 class="text-2xl">Pokémon Clicker</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="bg-yellow-400 text-red-600 px-3 py-1 rounded-full flex items-center">
+                    <i class="fas fa-coins mr-2"></i>
+                    <span id="pokeCoins">0</span>
+                </div>
+                <div class="bg-blue-500 text-white px-3 py-1 rounded-full flex items-center">
+                    <i class="fas fa-paw mr-2"></i>
+                    <span id="totalPokemon">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="flex-grow container mx-auto px-4 py-8 flex flex-col md:flex-row">
+        <!-- Left Column - Clicker -->
+        <div class="w-full md:w-1/2 flex flex-col items-center justify-center mb-8 md:mb-0">
+            <div class="text-center mb-8">
+                <h2 class="text-xl mb-2">Pokémon Caught: <span id="clickCount">0</span></h2>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progressBar" class="progress-bar bg-blue-500 h-4 rounded-full" style="width: 0%"></div>
+                </div>
+                <p class="text-sm mt-2">Next reward at <span id="nextReward">100</span> Pokémon</p>
+            </div>
+            
+            <button id="pokeballBtn" class="pokeball-btn relative w-32 h-32 bg-white rounded-full border-8 border-black flex items-center justify-center cursor-pointer hover:shadow-xl">
+                <div class="absolute top-0 w-full h-1/2 bg-red-600 rounded-t-full border-b-4 border-black"></div>
+                <div class="absolute bottom-0 w-full h-1/2 bg-white rounded-b-full"></div>
+                <div class="absolute w-8 h-8 bg-white rounded-full border-4 border-black z-10"></div>
+                <div class="absolute w-6 h-6 bg-gray-200 rounded-full border-2 border-black z-20"></div>
+            </button>
+            
+            <div class="mt-8 text-center">
+                <p class="mb-2">Pokémon per click: <span id="perClick">1</span></p>
+                <p>Pokémon per second: <span id="perSecond">0</span></p>
+            </div>
+        </div>
+        
+        <!-- Right Column - Upgrades -->
+        <div class="w-full md:w-1/2">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl mb-4 border-b-2 border-gray-200 pb-2 flex items-center">
+                    <i class="fas fa-shopping-cart mr-2 text-blue-500"></i>
+                    Pokémon Helpers
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Pikachu Helper -->
+                    <div id="pikachu-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-yellow-400">
+                        <div class="bg-yellow-100 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Pikachu</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-electric text-white text-xs px-2 py-1 rounded-full">Electric</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Pikachu helps catch 1 Pokémon every 5 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-yellow-600 font-bold">Cost: <span id="pikachu-cost">50</span></span>
+                                <button id="buy-pikachu" class="bg-yellow-400 hover:bg-yellow-500 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="pikachu-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charmander Helper -->
+                    <div id="charmander-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-orange-400">
+                        <div class="bg-orange-100 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png" alt="Charmander" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Charmander</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-fire text-white text-xs px-2 py-1 rounded-full">Fire</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Charmander helps catch 5 Pokémon every 10 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-orange-600 font-bold">Cost: <span id="charmander-cost">200</span></span>
+                                <button id="buy-charmander" class="bg-orange-400 hover:bg-orange-500 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="charmander-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Squirtle Helper -->
+                    <div id="squirtle-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-blue-400">
+                        <div class="bg-blue-100 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png" alt="Squirtle" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Squirtle</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-water text-white text-xs px-2 py-1 rounded-full">Water</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Squirtle helps catch 10 Pokémon every 15 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-blue-600 font-bold">Cost: <span id="squirtle-cost">500</span></span>
+                                <button id="buy-squirtle" class="bg-blue-400 hover:bg-blue-500 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="squirtle-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bulbasaur Helper -->
+                    <div id="bulbasaur-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-green-400">
+                        <div class="bg-green-100 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png" alt="Bulbasaur" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Bulbasaur</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-grass text-white text-xs px-2 py-1 rounded-full">Grass</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Bulbasaur helps catch 20 Pokémon every 20 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-green-600 font-bold">Cost: <span id="bulbasaur-cost">1000</span></span>
+                                <button id="buy-bulbasaur" class="bg-green-400 hover:bg-green-500 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="bulbasaur-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Achievements Section -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                <h2 class="text-xl mb-4 border-b-2 border-gray-200 pb-2 flex items-center">
+                    <i class="fas fa-trophy mr-2 text-yellow-500"></i>
+                    Poké Achievements
+                </h2>
+                
+                <div class="space-y-3">
+                    <div id="achievement-1" class="flex items-center p-2 bg-gray-100 rounded-lg opacity-50">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-lock text-gray-500"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold">Novice Trainer</h3>
+                            <p class="text-sm">Catch 50 Pokémon</p>
+                        </div>
+                    </div>
+                    
+                    <div id="achievement-2" class="flex items-center p-2 bg-gray-100 rounded-lg opacity-50">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-lock text-gray-500"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold">Pokémon Collector</h3>
+                            <p class="text-sm">Catch 200 Pokémon</p>
+                        </div>
+                    </div>
+                    
+                    <div id="achievement-3" class="flex items-center p-2 bg-gray-100 rounded-lg opacity-50">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-lock text-gray-500"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold">Master Trainer</h3>
+                            <p class="text-sm">Catch 1000 Pokémon</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-4 px-6 text-center text-sm">
+        Pokémon Clicker - Inspired by Cookie Clicker
+    </footer>
+
+    <script>
+        // Game state
+        const gameState = {
+            pokeCoins: 0,
+            totalPokemon: 0,
+            pokemonPerClick: 1,
+            pokemonPerSecond: 0,
+            nextRewardAt: 100,
+            
+            // Helpers
+            pikachu: {
+                owned: 0,
+                cost: 50,
+                power: 1,
+                interval: 5000 // 5 seconds
+            },
+            charmander: {
+                owned: 0,
+                cost: 200,
+                power: 5,
+                interval: 10000 // 10 seconds
+            },
+            squirtle: {
+                owned: 0,
+                cost: 500,
+                power: 10,
+                interval: 15000 // 15 seconds
+            },
+            bulbasaur: {
+                owned: 0,
+                cost: 1000,
+                power: 20,
+                interval: 20000 // 20 seconds
+            },
+            
+            // Achievements
+            achievements: {
+                novice: false,
+                collector: false,
+                master: false
+            }
+        };
+
+        // DOM elements
+        const elements = {
+            pokeCoins: document.getElementById('pokeCoins'),
+            totalPokemon: document.getElementById('totalPokemon'),
+            clickCount: document.getElementById('clickCount'),
+            perClick: document.getElementById('perClick'),
+            perSecond: document.getElementById('perSecond'),
+            progressBar: document.getElementById('progressBar'),
+            nextReward: document.getElementById('nextReward'),
+            pokeballBtn: document.getElementById('pokeballBtn'),
+            
+            // Helper buttons
+            buyPikachu: document.getElementById('buy-pikachu'),
+            buyCharmander: document.getElementById('buy-charmander'),
+            buySquirtle: document.getElementById('buy-squirtle'),
+            buyBulbasaur: document.getElementById('buy-bulbasaur'),
+            
+            // Helper costs
+            pikachuCost: document.getElementById('pikachu-cost'),
+            charmanderCost: document.getElementById('charmander-cost'),
+            squirtleCost: document.getElementById('squirtle-cost'),
+            bulbasaurCost: document.getElementById('bulbasaur-cost'),
+            
+            // Helper owned counts
+            pikachuOwned: document.getElementById('pikachu-owned'),
+            charmanderOwned: document.getElementById('charmander-owned'),
+            squirtleOwned: document.getElementById('squirtle-owned'),
+            bulbasaurOwned: document.getElementById('bulbasaur-owned'),
+            
+            // Achievement elements
+            achievement1: document.getElementById('achievement-1'),
+            achievement2: document.getElementById('achievement-2'),
+            achievement3: document.getElementById('achievement-3')
+        };
+
+        // Initialize the game
+        function initGame() {
+            updateUI();
+            setupEventListeners();
+            startAutoClickers();
+        }
+
+        // Update all UI elements
+        function updateUI() {
+            elements.pokeCoins.textContent = gameState.pokeCoins;
+            elements.totalPokemon.textContent = gameState.totalPokemon;
+            elements.clickCount.textContent = gameState.totalPokemon;
+            elements.perClick.textContent = gameState.pokemonPerClick;
+            elements.perSecond.textContent = gameState.pokemonPerSecond;
+            elements.nextReward.textContent = gameState.nextRewardAt;
+            
+            // Update progress bar
+            const progress = Math.min((gameState.totalPokemon / gameState.nextRewardAt) * 100, 100);
+            elements.progressBar.style.width = `${progress}%`;
+            
+            // Update helper costs and counts
+            elements.pikachuCost.textContent = gameState.pikachu.cost;
+            elements.charmanderCost.textContent = gameState.charmander.cost;
+            elements.squirtleCost.textContent = gameState.squirtle.cost;
+            elements.bulbasaurCost.textContent = gameState.bulbasaur.cost;
+            
+            elements.pikachuOwned.textContent = gameState.pikachu.owned;
+            elements.charmanderOwned.textContent = gameState.charmander.owned;
+            elements.squirtleOwned.textContent = gameState.squirtle.owned;
+            elements.bulbasaurOwned.textContent = gameState.bulbasaur.owned;
+            
+            // Update button states
+            updateButtonStates();
+            
+            // Check achievements
+            checkAchievements();
+        }
+
+        // Update button states based on affordability
+        function updateButtonStates() {
+            elements.buyPikachu.classList.toggle('disabled', gameState.pokeCoins < gameState.pikachu.cost);
+            elements.buyCharmander.classList.toggle('disabled', gameState.pokeCoins < gameState.charmander.cost);
+            elements.buySquirtle.classList.toggle('disabled', gameState.pokeCoins < gameState.squirtle.cost);
+            elements.buyBulbasaur.classList.toggle('disabled', gameState.pokeCoins < gameState.bulbasaur.cost);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Pokéball click
+            elements.pokeballBtn.addEventListener('click', () => {
+                // Add animation
+                elements.pokeballBtn.classList.add('catch-animation');
+                setTimeout(() => {
+                    elements.pokeballBtn.classList.remove('catch-animation');
+                }, 300);
+                
+                // Add Pokémon and coins
+                gameState.totalPokemon += gameState.pokemonPerClick;
+                gameState.pokeCoins += gameState.pokemonPerClick;
+                
+                // Check for rewards
+                if (gameState.totalPokemon >= gameState.nextRewardAt) {
+                    gameState.nextRewardAt *= 2;
+                    gameState.pokemonPerClick += 1;
+                }
+                
+                updateUI();
+            });
+            
+            // Helper purchases
+            elements.buyPikachu.addEventListener('click', () => buyHelper('pikachu'));
+            elements.buyCharmander.addEventListener('click', () => buyHelper('charmander'));
+            elements.buySquirtle.addEventListener('click', () => buyHelper('squirtle'));
+            elements.buyBulbasaur.addEventListener('click', () => buyHelper('bulbasaur'));
+        }
+
+        // Buy a helper
+        function buyHelper(helperName) {
+            const helper = gameState[helperName];
+            
+            if (gameState.pokeCoins >= helper.cost) {
+                // Deduct cost
+                gameState.pokeCoins -= helper.cost;
+                
+                // Increase helper count
+                helper.owned += 1;
+                
+                // Increase cost for next purchase (10% more)
+                helper.cost = Math.floor(helper.cost * 1.1);
+                
+                // Update pokemon per second
+                gameState.pokemonPerSecond = calculatePokemonPerSecond();
+                
+                updateUI();
+            }
+        }
+
+        // Calculate total Pokémon per second
+        function calculatePokemonPerSecond() {
+            let pps = 0;
+            
+            // Pikachu contribution
+            pps += (gameState.pikachu.owned * gameState.pikachu.power) / (gameState.pikachu.interval / 1000);
+            
+            // Charmander contribution
+            pps += (gameState.charmander.owned * gameState.charmander.power) / (gameState.charmander.interval / 1000);
+            
+            // Squirtle contribution
+            pps += (gameState.squirtle.owned * gameState.squirtle.power) / (gameState.squirtle.interval / 1000);
+            
+            // Bulbasaur contribution
+            pps += (gameState.bulbasaur.owned * gameState.bulbasaur.power) / (gameState.bulbasaur.interval / 1000);
+            
+            return Math.round(pps * 10) / 10; // Round to 1 decimal place
+        }
+
+        // Start auto-clickers
+        function startAutoClickers() {
+            // Pikachu auto-clicker
+            if (gameState.pikachu.owned > 0) {
+                setInterval(() => {
+                    if (gameState.pikachu.owned > 0) {
+                        gameState.totalPokemon += gameState.pikachu.power * gameState.pikachu.owned;
+                        gameState.pokeCoins += gameState.pikachu.power * gameState.pikachu.owned;
+                        updateUI();
+                    }
+                }, gameState.pikachu.interval);
+            }
+            
+            // Charmander auto-clicker
+            if (gameState.charmander.owned > 0) {
+                setInterval(() => {
+                    if (gameState.charmander.owned > 0) {
+                        gameState.totalPokemon += gameState.charmander.power * gameState.charmander.owned;
+                        gameState.pokeCoins += gameState.charmander.power * gameState.charmander.owned;
+                        updateUI();
+                    }
+                }, gameState.charmander.interval);
+            }
+            
+            // Squirtle auto-clicker
+            if (gameState.squirtle.owned > 0) {
+                setInterval(() => {
+                    if (gameState.squirtle.owned > 0) {
+                        gameState.totalPokemon += gameState.squirtle.power * gameState.squirtle.owned;
+                        gameState.pokeCoins += gameState.squirtle.power * gameState.squirtle.owned;
+                        updateUI();
+                    }
+                }, gameState.squirtle.interval);
+            }
+            
+            // Bulbasaur auto-clicker
+            if (gameState.bulbasaur.owned > 0) {
+                setInterval(() => {
+                    if (gameState.bulbasaur.owned > 0) {
+                        gameState.totalPokemon += gameState.bulbasaur.power * gameState.bulbasaur.owned;
+                        gameState.pokeCoins += gameState.bulbasaur.power * gameState.bulbasaur.owned;
+                        updateUI();
+                    }
+                }, gameState.bulbasaur.interval);
+            }
+        }
+
+        // Check and unlock achievements
+        function checkAchievements() {
+            // Novice Trainer (50 Pokémon)
+            if (!gameState.achievements.novice && gameState.totalPokemon >= 50) {
+                gameState.achievements.novice = true;
+                elements.achievement1.classList.remove('opacity-50');
+                elements.achievement1.querySelector('i').className = 'fas fa-check text-green-500';
+                
+                // Reward for achievement
+                gameState.pokeCoins += 100;
+                gameState.pokemonPerClick += 1;
+            }
+            
+            // Pokémon Collector (200 Pokémon)
+            if (!gameState.achievements.collector && gameState.totalPokemon >= 200) {
+                gameState.achievements.collector = true;
+                elements.achievement2.classList.remove('opacity-50');
+                elements.achievement2.querySelector('i').className = 'fas fa-check text-green-500';
+                
+                // Reward for achievement
+                gameState.pokeCoins += 500;
+                gameState.pokemonPerClick += 2;
+            }
+            
+            // Master Trainer (1000 Pokémon)
+            if (!gameState.achievements.master && gameState.totalPokemon >= 1000) {
+                gameState.achievements.master = true;
+                elements.achievement3.classList.remove('opacity-50');
+                elements.achievement3.querySelector('i').className = 'fas fa-check text-green-500';
+                
+                // Reward for achievement
+                gameState.pokeCoins += 2000;
+                gameState.pokemonPerClick += 5;
+            }
+        }
+
+        // Initialize the game when the page loads
+        window.onload = initGame;
+    </script>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=mentamarco7ss/pok-clicker" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</html>
