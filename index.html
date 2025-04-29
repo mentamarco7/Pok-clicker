@@ -61,14 +61,76 @@
         .type-electric { background-color: #F8D030; }
         .type-normal { background-color: #A8A878; }
         .type-flying { background-color: #A890F0; }
+        .type-psychic { background-color: #F85888; }
+        .type-rock { background-color: #B8A038; }
+        .type-ghost { background-color: #705898; }
+        .type-dragon { background-color: #7038F8; }
+        .type-dark { background-color: #705848; }
+        .type-steel { background-color: #B8B8D0; }
+        .type-fairy { background-color: #EE99AC; }
+        .type-poison { background-color: #A040A0; }
+        .type-ground { background-color: #E0C068; }
+        .type-ice { background-color: #98D8D8; }
+        .type-bug { background-color: #A8B820; }
+        .type-fighting { background-color: #C03028; }
         
         .disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
+        
+        .shiny {
+            background: linear-gradient(45deg, #FFD700, #FFA500, #FFD700);
+            background-size: 200% 200%;
+            animation: shine 2s linear infinite;
+        }
+        
+        @keyframes shine {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .critical-hit {
+            position: absolute;
+            font-size: 24px;
+            color: red;
+            font-weight: bold;
+            animation: critAnimation 1s forwards;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        @keyframes critAnimation {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
+    <!-- Notification System -->
+    <div id="notification" class="notification hidden">
+        <div id="notification-content"></div>
+    </div>
+
     <!-- Header -->
     <header class="bg-red-600 text-white py-4 px-6 shadow-lg">
         <div class="container mx-auto flex justify-between items-center">
@@ -101,16 +163,35 @@
                 <p class="text-sm mt-2">Next reward at <span id="nextReward">100</span> Pokémon</p>
             </div>
             
-            <button id="pokeballBtn" class="pokeball-btn relative w-32 h-32 bg-white rounded-full border-8 border-black flex items-center justify-center cursor-pointer hover:shadow-xl">
-                <div class="absolute top-0 w-full h-1/2 bg-red-600 rounded-t-full border-b-4 border-black"></div>
-                <div class="absolute bottom-0 w-full h-1/2 bg-white rounded-b-full"></div>
-                <div class="absolute w-8 h-8 bg-white rounded-full border-4 border-black z-10"></div>
-                <div class="absolute w-6 h-6 bg-gray-200 rounded-full border-2 border-black z-20"></div>
-            </button>
+            <div class="relative">
+                <button id="pokeballBtn" class="pokeball-btn relative w-32 h-32 bg-white rounded-full border-8 border-black flex items-center justify-center cursor-pointer hover:shadow-xl">
+                    <div class="absolute top-0 w-full h-1/2 bg-red-600 rounded-t-full border-b-4 border-black"></div>
+                    <div class="absolute bottom-0 w-full h-1/2 bg-white rounded-b-full"></div>
+                    <div class="absolute w-8 h-8 bg-white rounded-full border-4 border-black z-10"></div>
+                    <div class="absolute w-6 h-6 bg-gray-200 rounded-full border-2 border-black z-20"></div>
+                </button>
+                <div id="critContainer" class="absolute inset-0 pointer-events-none"></div>
+            </div>
             
             <div class="mt-8 text-center">
                 <p class="mb-2">Pokémon per click: <span id="perClick">1</span></p>
                 <p>Pokémon per second: <span id="perSecond">0</span></p>
+                <p class="mt-2 text-sm">Critical Hit Chance: <span id="critChance">5</span>%</p>
+            </div>
+            
+            <!-- Power-ups Section -->
+            <div class="mt-8 w-full max-w-md">
+                <h3 class="text-lg mb-3 border-b-2 border-gray-300 pb-2">Power-ups</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="buy-click-power" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-between disabled">
+                        <span>+1 Click Power</span>
+                        <span class="ml-2">(<span id="click-power-cost">100</span>)</span>
+                    </button>
+                    <button id="buy-crit-chance" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-between disabled">
+                        <span>+5% Crit Chance</span>
+                        <span class="ml-2">(<span id="crit-chance-cost">250</span>)</span>
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -218,6 +299,104 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Eevee Helper -->
+                    <div id="eevee-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-yellow-700">
+                        <div class="bg-yellow-200 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/133.png" alt="Eevee" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Eevee</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-normal text-white text-xs px-2 py-1 rounded-full">Normal</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Eevee helps catch 15 Pokémon every 12 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-yellow-700 font-bold">Cost: <span id="eevee-cost">750</span></span>
+                                <button id="buy-eevee" class="bg-yellow-500 hover:bg-yellow-600 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="eevee-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gengar Helper -->
+                    <div id="gengar-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-purple-600">
+                        <div class="bg-purple-100 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png" alt="Gengar" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Gengar</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-ghost text-white text-xs px-2 py-1 rounded-full">Ghost</span>
+                                    <span class="type-poison text-white text-xs px-2 py-1 rounded-full ml-1">Poison</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Gengar helps catch 30 Pokémon every 25 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-purple-600 font-bold">Cost: <span id="gengar-cost">1500</span></span>
+                                <button id="buy-gengar" class="bg-purple-400 hover:bg-purple-500 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="gengar-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dragonite Helper -->
+                    <div id="dragonite-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-orange-500">
+                        <div class="bg-orange-200 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png" alt="Dragonite" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Dragonite</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-dragon text-white text-xs px-2 py-1 rounded-full">Dragon</span>
+                                    <span class="type-flying text-white text-xs px-2 py-1 rounded-full ml-1">Flying</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Dragonite helps catch 50 Pokémon every 30 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-orange-500 font-bold">Cost: <span id="dragonite-cost">3000</span></span>
+                                <button id="buy-dragonite" class="bg-orange-300 hover:bg-orange-400 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="dragonite-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mewtwo Helper -->
+                    <div id="mewtwo-card" class="pokemon-card rounded-lg overflow-hidden border-2 border-pink-500">
+                        <div class="bg-pink-100 p-3 flex items-center">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-3">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png" alt="Mewtwo" class="w-14 h-14">
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Mewtwo</h3>
+                                <div class="flex mt-1">
+                                    <span class="type-psychic text-white text-xs px-2 py-1 rounded-full">Psychic</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white">
+                            <p class="text-sm mb-3">Mewtwo helps catch 100 Pokémon every 60 seconds.</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-pink-600 font-bold">Cost: <span id="mewtwo-cost">5000</span></span>
+                                <button id="buy-mewtwo" class="bg-pink-400 hover:bg-pink-500 text-black px-3 py-1 rounded-full text-sm flex items-center disabled">
+                                    <i class="fas fa-plus mr-1"></i> Buy (<span id="mewtwo-owned">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -258,6 +437,26 @@
                             <p class="text-sm">Catch 1000 Pokémon</p>
                         </div>
                     </div>
+                    
+                    <div id="achievement-4" class="flex items-center p-2 bg-gray-100 rounded-lg opacity-50">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-lock text-gray-500"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold">Legendary Collector</h3>
+                            <p class="text-sm">Own 5 Mewtwo</p>
+                        </div>
+                    </div>
+                    
+                    <div id="achievement-5" class="flex items-center p-2 bg-gray-100 rounded-lg opacity-50">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-lock text-gray-500"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold">Critical Master</h3>
+                            <p class="text-sm">Reach 50% crit chance</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -276,6 +475,18 @@
             pokemonPerClick: 1,
             pokemonPerSecond: 0,
             nextRewardAt: 100,
+            critChance: 5, // 5% base crit chance
+            critMultiplier: 2, // 2x damage on crit
+            
+            // Power-ups
+            clickPower: {
+                owned: 0,
+                cost: 100
+            },
+            critChancePower: {
+                owned: 0,
+                cost: 250
+            },
             
             // Helpers
             pikachu: {
@@ -302,13 +513,44 @@
                 power: 20,
                 interval: 20000 // 20 seconds
             },
+            eevee: {
+                owned: 0,
+                cost: 750,
+                power: 15,
+                interval: 12000 // 12 seconds
+            },
+            gengar: {
+                owned: 0,
+                cost: 1500,
+                power: 30,
+                interval: 25000 // 25 seconds
+            },
+            dragonite: {
+                owned: 0,
+                cost: 3000,
+                power: 50,
+                interval: 30000 // 30 seconds
+            },
+            mewtwo: {
+                owned: 0,
+                cost: 5000,
+                power: 100,
+                interval: 60000 // 60 seconds
+            },
             
             // Achievements
             achievements: {
                 novice: false,
                 collector: false,
-                master: false
-            }
+                master: false,
+                legendary: false,
+                critMaster: false
+            },
+            
+            // Stats
+            totalClicks: 0,
+            totalCrits: 0,
+            highestCrit: 0
         };
 
         // DOM elements
@@ -321,29 +563,55 @@
             progressBar: document.getElementById('progressBar'),
             nextReward: document.getElementById('nextReward'),
             pokeballBtn: document.getElementById('pokeballBtn'),
+            critContainer: document.getElementById('critContainer'),
+            critChance: document.getElementById('critChance'),
+            notification: document.getElementById('notification'),
+            notificationContent: document.getElementById('notification-content'),
+            
+            // Power-up buttons
+            buyClickPower: document.getElementById('buy-click-power'),
+            buyCritChance: document.getElementById('buy-crit-chance'),
+            
+            // Power-up costs
+            clickPowerCost: document.getElementById('click-power-cost'),
+            critChanceCost: document.getElementById('crit-chance-cost'),
             
             // Helper buttons
             buyPikachu: document.getElementById('buy-pikachu'),
             buyCharmander: document.getElementById('buy-charmander'),
             buySquirtle: document.getElementById('buy-squirtle'),
             buyBulbasaur: document.getElementById('buy-bulbasaur'),
+            buyEevee: document.getElementById('buy-eevee'),
+            buyGengar: document.getElementById('buy-gengar'),
+            buyDragonite: document.getElementById('buy-dragonite'),
+            buyMewtwo: document.getElementById('buy-mewtwo'),
             
             // Helper costs
             pikachuCost: document.getElementById('pikachu-cost'),
             charmanderCost: document.getElementById('charmander-cost'),
             squirtleCost: document.getElementById('squirtle-cost'),
             bulbasaurCost: document.getElementById('bulbasaur-cost'),
+            eeveeCost: document.getElementById('eevee-cost'),
+            gengarCost: document.getElementById('gengar-cost'),
+            dragoniteCost: document.getElementById('dragonite-cost'),
+            mewtwoCost: document.getElementById('mewtwo-cost'),
             
             // Helper owned counts
             pikachuOwned: document.getElementById('pikachu-owned'),
             charmanderOwned: document.getElementById('charmander-owned'),
             squirtleOwned: document.getElementById('squirtle-owned'),
             bulbasaurOwned: document.getElementById('bulbasaur-owned'),
+            eeveeOwned: document.getElementById('eevee-owned'),
+            gengarOwned: document.getElementById('gengar-owned'),
+            dragoniteOwned: document.getElementById('dragonite-owned'),
+            mewtwoOwned: document.getElementById('mewtwo-owned'),
             
             // Achievement elements
             achievement1: document.getElementById('achievement-1'),
             achievement2: document.getElementById('achievement-2'),
-            achievement3: document.getElementById('achievement-3')
+            achievement3: document.getElementById('achievement-3'),
+            achievement4: document.getElementById('achievement-4'),
+            achievement5: document.getElementById('achievement-5')
         };
 
         // Initialize the game
@@ -351,6 +619,33 @@
             updateUI();
             setupEventListeners();
             startAutoClickers();
+            
+            // Load saved game if available
+            const savedGame = localStorage.getItem('pokemonClickerSave');
+            if (savedGame) {
+                const parsed = JSON.parse(savedGame);
+                Object.assign(gameState, parsed);
+                updateUI();
+                showNotification('Game loaded successfully!');
+            }
+            
+            // Set up save interval
+            setInterval(saveGame, 30000); // Save every 30 seconds
+        }
+
+        // Save game to localStorage
+        function saveGame() {
+            localStorage.setItem('pokemonClickerSave', JSON.stringify(gameState));
+        }
+
+        // Show notification
+        function showNotification(message, isError = false) {
+            elements.notificationContent.textContent = message;
+            elements.notification.className = isError ? 'notification show bg-red-500' : 'notification show';
+            
+            setTimeout(() => {
+                elements.notification.classList.remove('show');
+            }, 3000);
         }
 
         // Update all UI elements
@@ -360,6 +655,7 @@
             elements.clickCount.textContent = gameState.totalPokemon;
             elements.perClick.textContent = gameState.pokemonPerClick;
             elements.perSecond.textContent = gameState.pokemonPerSecond;
+            elements.critChance.textContent = gameState.critChance;
             elements.nextReward.textContent = gameState.nextRewardAt;
             
             // Update progress bar
@@ -371,11 +667,23 @@
             elements.charmanderCost.textContent = gameState.charmander.cost;
             elements.squirtleCost.textContent = gameState.squirtle.cost;
             elements.bulbasaurCost.textContent = gameState.bulbasaur.cost;
+            elements.eeveeCost.textContent = gameState.eevee.cost;
+            elements.gengarCost.textContent = gameState.gengar.cost;
+            elements.dragoniteCost.textContent = gameState.dragonite.cost;
+            elements.mewtwoCost.textContent = gameState.mewtwo.cost;
             
             elements.pikachuOwned.textContent = gameState.pikachu.owned;
             elements.charmanderOwned.textContent = gameState.charmander.owned;
             elements.squirtleOwned.textContent = gameState.squirtle.owned;
             elements.bulbasaurOwned.textContent = gameState.bulbasaur.owned;
+            elements.eeveeOwned.textContent = gameState.eevee.owned;
+            elements.gengarOwned.textContent = gameState.gengar.owned;
+            elements.dragoniteOwned.textContent = gameState.dragonite.owned;
+            elements.mewtwoOwned.textContent = gameState.mewtwo.owned;
+            
+            // Update power-up costs
+            elements.clickPowerCost.textContent = gameState.clickPower.cost;
+            elements.critChanceCost.textContent = gameState.critChancePower.cost;
             
             // Update button states
             updateButtonStates();
@@ -390,6 +698,13 @@
             elements.buyCharmander.classList.toggle('disabled', gameState.pokeCoins < gameState.charmander.cost);
             elements.buySquirtle.classList.toggle('disabled', gameState.pokeCoins < gameState.squirtle.cost);
             elements.buyBulbasaur.classList.toggle('disabled', gameState.pokeCoins < gameState.bulbasaur.cost);
+            elements.buyEevee.classList.toggle('disabled', gameState.pokeCoins < gameState.eevee.cost);
+            elements.buyGengar.classList.toggle('disabled', gameState.pokeCoins < gameState.gengar.cost);
+            elements.buyDragonite.classList.toggle('disabled', gameState.pokeCoins < gameState.dragonite.cost);
+            elements.buyMewtwo.classList.toggle('disabled', gameState.pokeCoins < gameState.mewtwo.cost);
+            
+            elements.buyClickPower.classList.toggle('disabled', gameState.pokeCoins < gameState.clickPower.cost);
+            elements.buyCritChance.classList.toggle('disabled', gameState.pokeCoins < gameState.critChancePower.cost);
         }
 
         // Setup event listeners
@@ -402,14 +717,42 @@
                     elements.pokeballBtn.classList.remove('catch-animation');
                 }, 300);
                 
+                // Check for critical hit
+                const isCrit = Math.random() * 100 < gameState.critChance;
+                let pokemonCaught = gameState.pokemonPerClick;
+                
+                if (isCrit) {
+                    pokemonCaught = Math.floor(gameState.pokemonPerClick * gameState.critMultiplier);
+                    gameState.totalCrits++;
+                    if (pokemonCaught > gameState.highestCrit) {
+                        gameState.highestCrit = pokemonCaught;
+                    }
+                    
+                    // Show crit animation
+                    const critElement = document.createElement('div');
+                    critElement.className = 'critical-hit';
+                    critElement.textContent = 'CRIT! x' + gameState.critMultiplier;
+                    critElement.style.left = Math.random() * 100 + 'px';
+                    critElement.style.top = Math.random() * 100 + 'px';
+                    elements.critContainer.appendChild(critElement);
+                    
+                    setTimeout(() => {
+                        critElement.remove();
+                    }, 1000);
+                    
+                    showNotification('Critical Hit! Caught ' + pokemonCaught + ' Pokémon!', false);
+                }
+                
                 // Add Pokémon and coins
-                gameState.totalPokemon += gameState.pokemonPerClick;
-                gameState.pokeCoins += gameState.pokemonPerClick;
+                gameState.totalPokemon += pokemonCaught;
+                gameState.pokeCoins += pokemonCaught;
+                gameState.totalClicks++;
                 
                 // Check for rewards
                 if (gameState.totalPokemon >= gameState.nextRewardAt) {
                     gameState.nextRewardAt *= 2;
                     gameState.pokemonPerClick += 1;
+                    showNotification('Level Up! You now catch ' + gameState.pokemonPerClick + ' Pokémon per click!');
                 }
                 
                 updateUI();
@@ -420,6 +763,14 @@
             elements.buyCharmander.addEventListener('click', () => buyHelper('charmander'));
             elements.buySquirtle.addEventListener('click', () => buyHelper('squirtle'));
             elements.buyBulbasaur.addEventListener('click', () => buyHelper('bulbasaur'));
+            elements.bbuyEevee.addEventListener('click', () => buyHelper('eevee'));
+            elements.buyGengar.addEventListener('click', () => buyHelper('gengar'));
+            elements.buyDragonite.addEventListener('click', () => buyHelper('dragonite'));
+            elements.buyMewtwo.addEventListener('click', () => buyHelper('mewtwo'));
+            
+            // Power-up purchases
+            elements.buyClickPower.addEventListener('click', buyClickPower);
+            elements.buyCritChance.addEventListener('click', buyCritChance);
         }
 
         // Buy a helper
@@ -439,7 +790,47 @@
                 // Update pokemon per second
                 gameState.pokemonPerSecond = calculatePokemonPerSecond();
                 
+                // Start auto-clicker if this is the first purchase
+                if (helper.owned === 1) {
+                    startAutoClicker(helperName);
+                }
+                
+                // Show notification
+                showNotification('You bought a ' + helperName.charAt(0).toUpperCase() + helperName.slice(1) + '!');
+                
                 updateUI();
+            } else {
+                showNotification('Not enough PokéCoins!', true);
+            }
+        }
+
+        // Buy click power upgrade
+        function buyClickPower() {
+            if (gameState.pokeCoins >= gameState.clickPower.cost) {
+                gameState.pokeCoins -= gameState.clickPower.cost;
+                gameState.pokemonPerClick += 1;
+                gameState.clickPower.owned += 1;
+                gameState.clickPower.cost = Math.floor(gameState.clickPower.cost * 1.2);
+                
+                showNotification('Click power increased to ' + gameState.pokemonPerClick + '!');
+                updateUI();
+            } else {
+                showNotification('Not enough PokéCoins!', true);
+            }
+        }
+
+        // Buy crit chance upgrade
+        function buyCritChance() {
+            if (gameState.pokeCoins >= gameState.critChancePower.cost) {
+                gameState.pokeCoins -= gameState.critChancePower.cost;
+                gameState.critChance += 5;
+                gameState.critChancePower.owned += 1;
+                gameState.critChancePower.cost = Math.floor(gameState.critChancePower.cost * 1.3);
+                
+                showNotification('Critical hit chance increased to ' + gameState.critChance + '%!');
+                updateUI();
+            } else {
+                showNotification('Not enough PokéCoins!', true);
             }
         }
 
@@ -459,54 +850,49 @@
             // Bulbasaur contribution
             pps += (gameState.bulbasaur.owned * gameState.bulbasaur.power) / (gameState.bulbasaur.interval / 1000);
             
+            // Eevee contribution
+            pps += (gameState.eevee.owned * gameState.eevee.power) / (gameState.eevee.interval / 1000);
+            
+            // Gengar contribution
+            pps += (gameState.gengar.owned * gameState.gengar.power) / (gameState.gengar.interval / 1000);
+            
+            // Dragonite contribution
+            pps += (gameState.dragonite.owned * gameState.dragonite.power) / (gameState.dragonite.interval / 1000);
+            
+            // Mewtwo contribution
+            pps += (gameState.mewtwo.owned * gameState.mewtwo.power) / (gameState.mewtwo.interval / 1000);
+            
             return Math.round(pps * 10) / 10; // Round to 1 decimal place
         }
 
-        // Start auto-clickers
+        // Start auto-clickers for all helpers
         function startAutoClickers() {
-            // Pikachu auto-clicker
-            if (gameState.pikachu.owned > 0) {
-                setInterval(() => {
-                    if (gameState.pikachu.owned > 0) {
-                        gameState.totalPokemon += gameState.pikachu.power * gameState.pikachu.owned;
-                        gameState.pokeCoins += gameState.pikachu.power * gameState.pikachu.owned;
-                        updateUI();
-                    }
-                }, gameState.pikachu.interval);
+            for (const helperName in gameState) {
+                if (gameState[helperName].owned > 0) {
+                    startAutoClicker(helperName);
+                }
             }
+        }
+
+        // Start an auto-clicker for a specific helper
+        function startAutoClicker(helperName) {
+            const helper = gameState[helperName];
             
-            // Charmander auto-clicker
-            if (gameState.charmander.owned > 0) {
-                setInterval(() => {
-                    if (gameState.charmander.owned > 0) {
-                        gameState.totalPokemon += gameState.charmander.power * gameState.charmander.owned;
-                        gameState.pokeCoins += gameState.charmander.power * gameState.charmander.owned;
-                        updateUI();
+            setInterval(() => {
+                if (helper.owned > 0) {
+                    const pokemonCaught = helper.power * helper.owned;
+                    gameState.totalPokemon += pokemonCaught;
+                    gameState.pokeCoins += pokemonCaught;
+                    
+                    // Occasionally show notification for high-value helpers
+                    if (helper.power >= 30 && Math.random() < 0.1) {
+                        showNotification(helperName.charAt(0).toUpperCase() + helperName.slice(1) + 
+                                       ' caught ' + pokemonCaught + ' Pokémon for you!');
                     }
-                }, gameState.charmander.interval);
-            }
-            
-            // Squirtle auto-clicker
-            if (gameState.squirtle.owned > 0) {
-                setInterval(() => {
-                    if (gameState.squirtle.owned > 0) {
-                        gameState.totalPokemon += gameState.squirtle.power * gameState.squirtle.owned;
-                        gameState.pokeCoins += gameState.squirtle.power * gameState.squirtle.owned;
-                        updateUI();
-                    }
-                }, gameState.squirtle.interval);
-            }
-            
-            // Bulbasaur auto-clicker
-            if (gameState.bulbasaur.owned > 0) {
-                setInterval(() => {
-                    if (gameState.bulbasaur.owned > 0) {
-                        gameState.totalPokemon += gameState.bulbasaur.power * gameState.bulbasaur.owned;
-                        gameState.pokeCoins += gameState.bulbasaur.power * gameState.bulbasaur.owned;
-                        updateUI();
-                    }
-                }, gameState.bulbasaur.interval);
-            }
+                    
+                    updateUI();
+                }
+            }, helper.interval);
         }
 
         // Check and unlock achievements
@@ -515,38 +901,70 @@
             if (!gameState.achievements.novice && gameState.totalPokemon >= 50) {
                 gameState.achievements.novice = true;
                 elements.achievement1.classList.remove('opacity-50');
+                elements.achievement1.classList.add('shiny');
                 elements.achievement1.querySelector('i').className = 'fas fa-check text-green-500';
                 
                 // Reward for achievement
                 gameState.pokeCoins += 100;
                 gameState.pokemonPerClick += 1;
+                showNotification('Achievement Unlocked: Novice Trainer! +100 PokéCoins and +1 Click Power!');
             }
             
             // Pokémon Collector (200 Pokémon)
             if (!gameState.achievements.collector && gameState.totalPokemon >= 200) {
                 gameState.achievements.collector = true;
                 elements.achievement2.classList.remove('opacity-50');
+                elements.achievement2.classList.add('shiny');
                 elements.achievement2.querySelector('i').className = 'fas fa-check text-green-500';
                 
                 // Reward for achievement
                 gameState.pokeCoins += 500;
                 gameState.pokemonPerClick += 2;
+                showNotification('Achievement Unlocked: Pokémon Collector! +500 PokéCoins and +2 Click Power!');
             }
             
             // Master Trainer (1000 Pokémon)
             if (!gameState.achievements.master && gameState.totalPokemon >= 1000) {
                 gameState.achievements.master = true;
                 elements.achievement3.classList.remove('opacity-50');
+                elements.achievement3.classList.add('shiny');
                 elements.achievement3.querySelector('i').className = 'fas fa-check text-green-500';
                 
                 // Reward for achievement
                 gameState.pokeCoins += 2000;
                 gameState.pokemonPerClick += 5;
+                showNotification('Achievement Unlocked: Master Trainer! +2000 PokéCoins and +5 Click Power!');
+            }
+            
+            // Legendary Collector (5 Mewtwo)
+            if (!gameState.achievements.legendary && gameState.mewtwo.owned >= 5) {
+                gameState.achievements.legendary = true;
+                elements.achievement4.classList.remove('opacity-50');
+                elements.achievement4.classList.add('shiny');
+                elements.achievement4.querySelector('i').className = 'fas fa-check text-green-500';
+                
+                // Reward for achievement
+                gameState.pokeCoins += 5000;
+                gameState.critMultiplier = 3; // Increase crit multiplier
+                showNotification('Achievement Unlocked: Legendary Collector! +5000 PokéCoins and 3x Critical Hits!');
+            }
+            
+            // Critical Master (50% crit chance)
+            if (!gameState.achievements.critMaster && gameState.critChance >= 50) {
+                gameState.achievements.critMaster = true;
+                elements.achievement5.classList.remove('opacity-50');
+                elements.achievement5.classList.add('shiny');
+                elements.achievement5.querySelector('i').className = 'fas fa-check text-green-500';
+                
+                // Reward for achievement
+                gameState.pokeCoins += 3000;
+                gameState.critMultiplier = 4; // Increase crit multiplier
+                showNotification('Achievement Unlocked: Critical Master! +3000 PokéCoins and 4x Critical Hits!');
             }
         }
 
         // Initialize the game when the page loads
         window.onload = initGame;
     </script>
-<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=mentamarco7ss/pok-clicker" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=mentamarco7ss/bttrpokeclicker" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
 </html>
